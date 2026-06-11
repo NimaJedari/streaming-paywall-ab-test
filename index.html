@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paywall A/B Test — Nima Jedari</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap');
+
+  :root {
+    --bg:       #0f1117;
+    --bg2:      #181c27;
+    --bg3:      #1e2335;
+    --border:   #2a3050;
+    --text:     #e4e8f5;
+    --muted:    #6b789e;
+    --accent:   #4f9cf9;
+    --green:    #34c98a;
+    --amber:    #f5a623;
+    --red:      #f56565;
+    --purple:   #a78bfa;
+    --mono:     'IBM Plex Mono', monospace;
+    --sans:     'IBM Plex Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 3rem 0 2.5rem;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 2rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .75rem;
+  }
+
+  h1 {
+    font-size: clamp(1.6rem, 4vw, 2.6rem);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -.02em;
+    margin-bottom: 1rem;
+  }
+
+  .meta {
+    display: flex; flex-wrap: wrap; gap: .5rem .75rem;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    margin-bottom: 1.5rem;
+  }
+  .meta span::before { content: '— '; }
+
+  .tags { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .tag {
+    font-family: var(--mono); font-size: 11px;
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--muted); padding: 3px 10px; border-radius: 3px;
+  }
+
+  /* ── VERDICT BANNER ── */
+  .verdict {
+    background: linear-gradient(135deg, #0d2a1a 0%, #0e1f33 100%);
+    border: 1px solid var(--green);
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    margin: 2.5rem 0;
+    display: flex; align-items: center; gap: 1.5rem;
+  }
+  .verdict-icon {
+    font-size: 2rem; flex-shrink: 0;
+  }
+  .verdict-label {
+    font-family: var(--mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--green); margin-bottom: .2rem;
+  }
+  .verdict-text { font-size: 1rem; font-weight: 400; }
+
+  /* ── SECTION HEADERS ── */
+  .section { padding: 3rem 0; border-bottom: 1px solid var(--border); }
+  .section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: .12em;
+    color: var(--accent); margin-bottom: .75rem;
+  }
+
+  h2 {
+    font-size: 1.4rem; font-weight: 500;
+    letter-spacing: -.01em; margin-bottom: 1.25rem;
+  }
+
+  h3 {
+    font-size: .95rem; font-weight: 500;
+    color: var(--muted); text-transform: uppercase;
+    letter-spacing: .08em; margin-bottom: 1rem; margin-top: 2rem;
+  }
+  h3:first-child { margin-top: 0; }
+
+  p { margin-bottom: 1rem; color: #b8c0d8; }
+  p:last-child { margin-bottom: 0; }
+
+  /* ── KPI GRID ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden; margin: 1.5rem 0;
+  }
+  .kpi {
+    background: var(--bg2);
+    padding: 1.25rem 1.5rem;
+  }
+  .kpi-label {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted); margin-bottom: .4rem;
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  .kpi-value {
+    font-size: 1.8rem; font-weight: 500;
+    letter-spacing: -.02em; line-height: 1;
+    margin-bottom: .3rem;
+  }
+  .kpi-sub {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+  }
+  .up   { color: var(--green); }
+  .down { color: var(--red); }
+  .neu  { color: var(--accent); }
+
+  /* ── DESIGN TABLE ── */
+  .design-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .design-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.25rem 1.5rem;
+  }
+  .design-card.treatment { border-color: var(--accent); }
+  .design-card-label {
+    font-family: var(--mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted); margin-bottom: .75rem;
+  }
+  .design-card.treatment .design-card-label { color: var(--accent); }
+  .modal-preview {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 1rem 1.25rem;
+    font-size: 13px; line-height: 1.6; color: #9ba8c8;
+    font-style: italic;
+  }
+  .modal-preview strong { color: var(--text); font-style: normal; font-weight: 500; }
+
+  /* ── SIGNAL TABLE ── */
+  .signal-table {
+    width: 100%; border-collapse: collapse;
+    margin: 1rem 0; font-size: 13px;
+  }
+  .signal-table th {
+    font-family: var(--mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); text-align: left;
+    padding: 6px 12px 10px; border-bottom: 1px solid var(--border);
+  }
+  .signal-table td {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    color: #b8c0d8;
+  }
+  .signal-table tr:last-child td { border-bottom: none; }
+  .signal-table td:first-child { color: var(--text); font-weight: 400; }
+  .signal-table code {
+    font-family: var(--mono); font-size: 12px;
+    background: var(--bg3); padding: 2px 6px;
+    border-radius: 3px; color: var(--accent);
+  }
+
+  /* ── CHARTS ── */
+  .chart-wrap {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+  .chart-title {
+    font-family: var(--mono); font-size: 12px;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin-bottom: .25rem;
+  }
+  .chart-sub {
+    font-size: 12px; color: var(--muted); margin-bottom: 1.25rem;
+  }
+  .legend {
+    display: flex; gap: 1.5rem; font-size: 12px;
+    color: var(--muted); margin-bottom: 1rem;
+  }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .ldot { width: 12px; height: 3px; border-radius: 2px; }
+  .two-charts {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  /* ── RESULTS TABLE ── */
+  .results-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+    margin: 1rem 0;
+  }
+  .results-table th {
+    font-family: var(--mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); text-align: left;
+    padding: 6px 12px 10px; border-bottom: 1px solid var(--border);
+  }
+  .results-table td {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    color: #b8c0d8;
+  }
+  .results-table tr:last-child td { border-bottom: none; }
+  .results-table td.metric { color: var(--text); font-weight: 400; }
+  .results-table td.lift-pos { color: var(--green); font-weight: 500; font-family: var(--mono); font-size: 12px; }
+  .results-table td.lift-neg { color: var(--red); font-weight: 500; font-family: var(--mono); font-size: 12px; }
+  .results-table td.mono { font-family: var(--mono); font-size: 12px; }
+
+  .pill {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 3px; font-family: var(--mono);
+    font-size: 10px; font-weight: 500;
+  }
+  .pill-sig { background: #0d2a1a; color: var(--green); border: 1px solid var(--green); }
+  .pill-ns  { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
+
+  /* ── STAT BOX ── */
+  .stat-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden; margin: 1.5rem 0;
+  }
+  .stat-cell {
+    background: var(--bg2); padding: 1rem 1.25rem;
+    text-align: center;
+  }
+  .stat-cell .label {
+    font-family: var(--mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin-bottom: .4rem;
+  }
+  .stat-cell .val {
+    font-size: 1.3rem; font-weight: 500;
+    font-family: var(--mono); letter-spacing: -.01em;
+  }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--bg2); padding: 1rem 1.5rem;
+    border-radius: 0 6px 6px 0; margin: 1.5rem 0;
+    font-size: 14px; color: #b8c0d8;
+  }
+  .callout strong { color: var(--text); font-weight: 500; }
+
+  .callout-warn {
+    border-left-color: var(--amber);
+    background: #1c1a10;
+  }
+
+  /* ── RECOMMENDATION ── */
+  .rec-box {
+    background: linear-gradient(135deg, #0d2a1a, #0b1e30);
+    border: 1px solid var(--green); border-radius: 8px;
+    padding: 2rem; margin-top: 2rem;
+  }
+  .rec-box h3 { color: var(--green); margin-top: 0; }
+  .rec-box p { color: #a0c8b0; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 0;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* ── BAR ROWS ── */
+  .bar-row {
+    display: flex; align-items: center; gap: .75rem;
+    margin-bottom: .6rem; font-size: 13px;
+  }
+  .bar-label { width: 140px; flex-shrink: 0; color: #b8c0d8; }
+  .bar-track {
+    flex: 1; height: 8px; background: var(--bg3);
+    border-radius: 4px; overflow: hidden;
+  }
+  .bar-fill { height: 100%; border-radius: 4px; }
+  .bar-val {
+    width: 50px; text-align: right;
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 640px) {
+    .design-grid, .two-charts, .stat-row { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Experiment Report · Streaming Platform</div>
+    <h1>Personalized Paywall Upsell<br>A/B Test</h1>
+    <div class="meta">
+      <span>Nima Jedari</span>
+      <span>30-day experiment</span>
+      <span>12,000 users</span>
+      <span>Simulated dataset</span>
+    </div>
+    <div class="tags">
+      <span class="tag">Python</span>
+      <span class="tag">SciPy</span>
+      <span class="tag">Survival Analysis</span>
+      <span class="tag">Kaplan-Meier</span>
+      <span class="tag">Stratified Randomization</span>
+      <span class="tag">Log-Rank Test</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- VERDICT -->
+  <div class="verdict">
+    <div class="verdict-icon">✓</div>
+    <div>
+      <div class="verdict-label">Recommendation</div>
+      <div class="verdict-text">Ship to 100% of eligible users. Treatment delivers a statistically significant +7.35pp conversion lift with users converting 3 days faster.</div>
+    </div>
+  </div>
+
+  <!-- TOP KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Control Conversion</div>
+      <div class="kpi-value neu">9.33%</div>
+      <div class="kpi-sub">n = 5,999</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Treatment Conversion</div>
+      <div class="kpi-value up">16.68%</div>
+      <div class="kpi-sub">n = 6,001</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Absolute Lift</div>
+      <div class="kpi-value up">+7.35pp</div>
+      <div class="kpi-sub">95% CI [+6.1pp, +8.5pp]</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Relative Lift</div>
+      <div class="kpi-value up">+78.7%</div>
+      <div class="kpi-sub">vs baseline</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Median Time-to-Convert</div>
+      <div class="kpi-value up">Day 4</div>
+      <div class="kpi-sub">vs Day 7 control</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Revenue / User Lift</div>
+      <div class="kpi-value up">+$1.37</div>
+      <div class="kpi-sub">$3.18 vs $1.81</div>
+    </div>
+  </div>
+
+  <!-- 1. BUSINESS QUESTION -->
+  <section class="section">
+    <div class="section-label">01 · Business Question</div>
+    <h2>Does message personalization move the paywall?</h2>
+    <p>Free-to-premium conversion is one of the highest-leverage levers for a streaming platform. Most paywall prompts are generic — the same message shown to every user regardless of what they have been watching, how deeply engaged they are, or what moment triggered the paywall. The hypothesis is that anchoring the upsell to a user's own behavior creates a more compelling reason to subscribe than a product-level value proposition.</p>
+    <p>This experiment tests whether a behaviorally personalized paywall modal converts at a higher rate — and faster — than the current static generic modal.</p>
+  </section>
+
+  <!-- 2. EXPERIMENT DESIGN -->
+  <section class="section">
+    <div class="section-label">02 · Experiment Design</div>
+    <h2>Setup & variants</h2>
+
+    <h3>Design parameters</h3>
+    <table class="signal-table">
+      <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Randomization unit</td><td>User-level</td></tr>
+        <tr><td>Traffic split</td><td>50 / 50</td></tr>
+        <tr><td>Experiment window</td><td>30 days</td></tr>
+        <tr><td>Sample size</td><td>12,000 users (6,000 per group)</td></tr>
+        <tr><td>Primary metric</td><td>30-day premium conversion rate</td></tr>
+        <tr><td>Secondary metrics</td><td>Time-to-conversion, revenue per user</td></tr>
+        <tr><td>Significance level (α)</td><td>0.05</td></tr>
+        <tr><td>Statistical power</td><td>80%</td></tr>
+        <tr><td>Minimum detectable effect</td><td>+3 percentage points absolute</td></tr>
+        <tr><td>Required n per group</td><td>1,774  (actual: 6,000 — 3.4× over-powered)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Variants</h3>
+    <div class="design-grid">
+      <div class="design-card">
+        <div class="design-card-label">Control — Generic Modal</div>
+        <div class="modal-preview">
+          <strong>Unlock Premium</strong><br>
+          Get unlimited access to all shows and movies for $9.99/month.<br><br>
+          <strong>[Start Free Trial]</strong>
+        </div>
+      </div>
+      <div class="design-card treatment">
+        <div class="design-card-label">Treatment — Personalized Modal</div>
+        <div class="modal-preview">
+          <strong>You're on a roll</strong><br>
+          You've watched 4 episodes of Succession this week. Finish the season and unlock everything else with Premium — $9.99/month.<br><br>
+          <strong>[Start Free Trial]</strong>
+        </div>
+      </div>
+    </div>
+
+    <h3>Behavioral signals (treatment)</h3>
+    <p>The treatment modal dynamically selects a message based on the user's strongest behavioral signal:</p>
+    <table class="signal-table">
+      <thead><tr><th>Signal</th><th>Trigger condition</th><th>Message angle</th></tr></thead>
+      <tbody>
+        <tr><td>High completion</td><td>≥ 80% episode completion rate</td><td>"You're 2 episodes from finishing {show} — don't stop now."</td></tr>
+        <tr><td>Repeat visits</td><td>3+ visits to same paywalled title</td><td>"You've visited {show} 3 times this week. It's waiting for you."</td></tr>
+        <tr><td>Large watchlist</td><td>5+ paywalled titles saved</td><td>"8 titles on your watchlist are Premium. One sub unlocks all of them."</td></tr>
+        <tr><td>Binge behavior</td><td>3+ episodes in a single session</td><td>"You watched 4 episodes in one sitting. You're exactly who Premium is made for."</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 3. METHODOLOGY -->
+  <section class="section">
+    <div class="section-label">03 · Methodology</div>
+    <h2>Analysis approach</h2>
+
+    <h3>Power analysis</h3>
+    <p>A pre-experiment power analysis established a minimum of 1,774 users per group to detect a 3 percentage point MDE at 80% power and α = 0.05 (two-sided). The final dataset of 6,000 users per group comfortably exceeds this, providing ample power to detect effects smaller than the MDE.</p>
+
+    <h3>Randomization & sanity checks</h3>
+    <p>Randomization used stratified sampling — users were grouped by engagement tier (casual, regular, power) first, with a 50/50 split applied within each stratum. This was adopted after initial simple random assignment produced a borderline engagement tier imbalance (chi-square p = 0.049). Stratification guaranteed identical tier distributions by design. Pre-analysis sanity checks validated randomization integrity across four dimensions:</p>
+
+    <table class="signal-table">
+      <thead><tr><th>Check</th><th>Test</th><th>Result</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Sample ratio mismatch</td><td>Chi-square</td><td>p = 1.000</td><td><span class="pill pill-sig">PASS</span></td></tr>
+        <tr><td>Tenure balance</td><td>t-test</td><td>p = 0.891</td><td><span class="pill pill-sig">PASS</span></td></tr>
+        <tr><td>Device distribution</td><td>Chi-square</td><td>p = 0.743</td><td><span class="pill pill-sig">PASS</span></td></tr>
+        <tr><td>Engagement tier balance</td><td>Chi-square</td><td>p = 1.000</td><td><span class="pill pill-sig">PASS</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Statistical tests</h3>
+    <p><strong>Primary analysis:</strong> Two-proportion z-test comparing 30-day conversion rates between control and treatment, with a 95% confidence interval on the absolute difference.</p>
+    <p><strong>Survival analysis:</strong> Kaplan-Meier survival curves built from scratch in Python (scipy / numpy) to model the probability of not yet converting over 30 days. Non-converting users are treated as censored at Day 30. A log-rank test determines whether the two curves are statistically different. This captures not just whether treatment converts more, but how much faster.</p>
+    <p><strong>Subgroup analysis:</strong> Conversion rates compared by engagement tier and behavioral signal type using two-proportion z-tests within each segment.</p>
+  </section>
+
+  <!-- 4. RESULTS -->
+  <section class="section">
+    <div class="section-label">04 · Results</div>
+    <h2>Primary metric: conversion rate</h2>
+
+    <div class="stat-row">
+      <div class="stat-cell">
+        <div class="label">Z-statistic</div>
+        <div class="val neu">11.96</div>
+      </div>
+      <div class="stat-cell">
+        <div class="label">P-value</div>
+        <div class="val up">&lt; 0.0001</div>
+      </div>
+      <div class="stat-cell">
+        <div class="label">95% Confidence Interval</div>
+        <div class="val" style="font-size:1rem; color: var(--green);">[+6.1pp, +8.5pp]</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Finding:</strong> The personalized paywall converted 16.68% of users vs. 9.33% for the generic modal — an absolute lift of +7.35pp (relative +78.7%), far exceeding the pre-registered MDE of 3pp. The result is highly statistically significant (p &lt; 0.0001).
+    </div>
+
+    <h2 style="margin-top: 2.5rem;">Survival analysis: time-to-conversion</h2>
+
+    <div class="chart-wrap">
+      <div class="chart-title">Kaplan-Meier Survival Curve</div>
+      <div class="chart-sub">Probability of <em>not yet converting</em> over 30 days · log-rank p &lt; 0.0001</div>
+      <div class="legend">
+        <span><span class="ldot" style="background:var(--accent)"></span>Control</span>
+        <span><span class="ldot" style="background:var(--green); border-top: 2px dashed var(--green); background:none;"></span>Treatment</span>
+      </div>
+      <div style="position:relative; height:280px;">
+        <canvas id="kmChart"></canvas>
+      </div>
+    </div>
+
+    <div class="two-charts">
+      <div class="chart-wrap" style="margin:0;">
+        <div class="chart-title">Cumulative Conversion</div>
+        <div class="chart-sub">% converted by day</div>
+        <div style="position:relative; height:200px;">
+          <canvas id="cumChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-wrap" style="margin:0;">
+        <div class="chart-title">Conversion by Variant</div>
+        <div class="chart-sub">Overall 30-day rate</div>
+        <div style="position:relative; height:200px;">
+          <canvas id="convChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Finding:</strong> Treatment users converted at a median of Day 4 vs. Day 7 for control — 3 days faster. The conversion gap opened within the first week and stabilized through Day 30, indicating the personalization effect is immediate rather than gradual.
+    </div>
+
+    <h2 style="margin-top: 2.5rem;">Subgroup analysis</h2>
+
+    <h3>By engagement tier</h3>
+    <div class="chart-wrap">
+      <div class="legend" style="margin-bottom:.75rem;">
+        <span><span class="ldot" style="background:var(--accent)"></span>Control</span>
+        <span><span class="ldot" style="background:var(--green)"></span>Treatment</span>
+      </div>
+      <div style="position:relative; height:220px;">
+        <canvas id="tierChart"></canvas>
+      </div>
+    </div>
+
+    <table class="results-table">
+      <thead><tr><th>Tier</th><th>Control</th><th>Treatment</th><th>Lift</th><th>Sig?</th></tr></thead>
+      <tbody>
+        <tr><td class="metric">Casual</td><td class="mono">6.39%</td><td class="mono">12.08%</td><td class="lift-pos">+5.69pp</td><td><span class="pill pill-sig">p &lt; 0.0001</span></td></tr>
+        <tr><td class="metric">Regular</td><td class="mono">10.32%</td><td class="mono">18.13%</td><td class="lift-pos">+7.81pp</td><td><span class="pill pill-sig">p &lt; 0.0001</span></td></tr>
+        <tr><td class="metric">Power</td><td class="mono">17.29%</td><td class="mono">29.29%</td><td class="lift-pos">+12.00pp</td><td><span class="pill pill-sig">p &lt; 0.0001</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Finding:</strong> Lift is consistent across all engagement tiers and scales with engagement depth. Power users see the strongest absolute response (+12pp), but even casual users show a meaningful lift (+5.7pp), indicating the personalization approach works broadly — not just for highly engaged users.
+    </div>
+
+    <h3 style="margin-top:2rem;">By behavioral signal (treatment only)</h3>
+
+    <div style="margin: 1rem 0 1.5rem;">
+      <div class="bar-row">
+        <div class="bar-label">Binge behavior</div>
+        <div class="bar-track"><div class="bar-fill" style="width:95%; background:var(--purple)"></div></div>
+        <div class="bar-val">19.0%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">High completion</div>
+        <div class="bar-track"><div class="bar-fill" style="width:88%; background:var(--green)"></div></div>
+        <div class="bar-val">17.6%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Repeat visits</div>
+        <div class="bar-track"><div class="bar-fill" style="width:83%; background:var(--accent)"></div></div>
+        <div class="bar-val">16.5%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Large watchlist</div>
+        <div class="bar-track"><div class="bar-fill" style="width:70%; background:var(--amber)"></div></div>
+        <div class="bar-val">14.0%</div>
+      </div>
+      <div class="bar-row" style="margin-top:.5rem; opacity:.6;">
+        <div class="bar-label">Control (baseline)</div>
+        <div class="bar-track"><div class="bar-fill" style="width:47%; background:var(--muted)"></div></div>
+        <div class="bar-val">9.33%</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Finding:</strong> Binge behavior is the strongest-performing signal (19.0% conversion, +10.1pp over control), followed by high completion rate (+8.7pp). Large watchlist shows the weakest lift (+4.7pp), suggesting that intent signals tied to active in-session momentum convert better than passive wishlist accumulation.
+    </div>
+
+    <h2 style="margin-top: 2.5rem;">Secondary metric: revenue per user</h2>
+    <table class="results-table">
+      <thead><tr><th>Metric</th><th>Control</th><th>Treatment</th><th>Lift</th><th>Sig?</th></tr></thead>
+      <tbody>
+        <tr><td class="metric">Revenue per user</td><td class="mono">$1.81</td><td class="mono">$3.18</td><td class="lift-pos">+$1.37</td><td><span class="pill pill-sig">p &lt; 0.0001</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 5. BUSINESS IMPACT -->
+  <section class="section">
+    <div class="section-label">05 · Business Impact</div>
+    <h2>Projected revenue impact</h2>
+
+    <table class="signal-table">
+      <thead><tr><th>Assumption</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Hypothetical MAU</td><td>20,000,000</td></tr>
+        <tr><td>% hitting paywall monthly</td><td>40%</td></tr>
+        <tr><td>Users exposed per month</td><td>8,000,000</td></tr>
+        <tr><td>Incremental conversions / month</td><td>+588,000</td></tr>
+        <tr><td>ARPU (monthly)</td><td>$9.99</td></tr>
+        <tr><td>Incremental revenue / month</td><td>$5,874,120</td></tr>
+        <tr><td><strong>Incremental revenue / year</strong></td><td><strong>~$70.5M</strong></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 6. RECOMMENDATION -->
+  <section class="section">
+    <div class="section-label">06 · Recommendation</div>
+    <h2>Decision & next steps</h2>
+
+    <div class="rec-box">
+      <h3>Ship to 100% of eligible users</h3>
+      <p>The personalized paywall delivers a statistically and practically significant +7.35pp conversion lift (p &lt; 0.0001), well above the pre-registered MDE of 3pp. Results are consistent across all engagement tiers and replicated across all sanity checks. The survival analysis confirms users convert 3 days faster under treatment, which also reduces the risk of users churning before converting.</p>
+    </div>
+
+    <h3 style="margin-top:2rem;">Priority follow-up experiment</h3>
+    <p>Binge behavior is the strongest-performing signal, suggesting users in active consumption moments are most receptive to the upsell. The natural next experiment is mid-session binge-triggered timing — showing the modal at the end of an episode when a binge pattern has been detected, rather than only when a paywall is hit. The hypothesis is that catching users at the peak of their consumption momentum will push the binge signal's conversion rate even higher.</p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:.5rem;">
+    <span>Nima Jedari · <a href="https://linkedin.com/in/nimajedari">linkedin.com/in/nimajedari</a></span>
+    <span>Dataset is simulated · methodology reflects production A/B testing practices</span>
+  </div>
+</footer>
+
+<script>
+const blue   = '#4f9cf9';
+const green  = '#34c98a';
+const amber  = '#f5a623';
+const purple = '#a78bfa';
+const muted  = '#6b789e';
+const bg3    = '#1e2335';
+
+const days = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30];
+const kmCtrl = [1.0,0.9857,0.978,0.9695,0.9637,0.9592,0.9547,0.9498,0.9468,0.9432,0.9408,0.9378,0.9352,0.9323,0.9298,0.928,0.927,0.9255,0.9245,0.9235,0.9225,0.9208,0.92,0.9187,0.917,0.9162,0.9155,0.915,0.9142,0.9137,0.9067];
+const kmTrt  = [1.0,0.9592,0.9435,0.9277,0.9155,0.903,0.8955,0.8882,0.8797,0.874,0.8695,0.8632,0.859,0.8549,0.8512,0.8485,0.8457,0.8434,0.842,0.8405,0.8394,0.8394,0.8385,0.838,0.8374,0.8367,0.8362,0.8359,0.8354,0.8349,0.8332];
+const cumCtrl = days.map(d => +((1 - kmCtrl[d])*100).toFixed(2));
+const cumTrt  = days.map(d => +((1 - kmTrt[d])*100).toFixed(2));
+
+const gridColor = 'rgba(42,48,80,0.8)';
+const tickFont  = { family: "'IBM Plex Mono'", size: 11 };
+
+// KM chart
+new Chart(document.getElementById('kmChart'), {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: [
+      { label: 'Control',   data: kmCtrl.map(v=>+(v*100).toFixed(2)), borderColor: blue,  borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false },
+      { label: 'Treatment', data: kmTrt.map(v=>+(v*100).toFixed(2)),  borderColor: green, borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false, borderDash: [5,4] },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.raw.toFixed(1) + '%' } } },
+    scales: {
+      y: { min: 80, max: 101, ticks: { callback: v => v+'%', font: tickFont, color: muted }, grid: { color: gridColor } },
+      x: { ticks: { font: tickFont, color: muted, maxTicksLimit: 8, callback: v => 'Day '+v }, grid: { display: false } }
+    }
+  }
+});
+
+// Cumulative conversion
+new Chart(document.getElementById('cumChart'), {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: [
+      { label: 'Control',   data: cumCtrl, borderColor: blue,  borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false },
+      { label: 'Treatment', data: cumTrt,  borderColor: green, borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false, borderDash: [5,4] },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label+': '+c.raw.toFixed(1)+'%' } } },
+    scales: {
+      y: { ticks: { callback: v=>v+'%', font: tickFont, color: muted }, grid: { color: gridColor } },
+      x: { ticks: { font: tickFont, color: muted, maxTicksLimit: 6, callback: v=>'Day '+v }, grid: { display: false } }
+    }
+  }
+});
+
+// Overall conversion bar
+new Chart(document.getElementById('convChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Control', 'Treatment'],
+    datasets: [{
+      data: [9.33, 16.68],
+      backgroundColor: [blue, green],
+      borderWidth: 0, borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw.toFixed(2)+'%' } } },
+    scales: {
+      y: { min: 0, max: 22, ticks: { callback: v=>v+'%', font: tickFont, color: muted }, grid: { color: gridColor } },
+      x: { ticks: { font: tickFont, color: muted }, grid: { display: false } }
+    }
+  }
+});
+
+// Tier grouped bar
+new Chart(document.getElementById('tierChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Casual', 'Regular', 'Power'],
+    datasets: [
+      { label: 'Control',   data: [6.39, 10.32, 17.29], backgroundColor: blue,  borderWidth: 0, borderRadius: 3 },
+      { label: 'Treatment', data: [12.08, 18.13, 29.29], backgroundColor: green, borderWidth: 0, borderRadius: 3 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label+': '+c.raw.toFixed(2)+'%' } } },
+    scales: {
+      y: { ticks: { callback: v=>v+'%', font: tickFont, color: muted }, grid: { color: gridColor } },
+      x: { ticks: { font: tickFont, color: muted }, grid: { display: false } }
+    }
+  }
+});
+</script>
+</body>
+</html>

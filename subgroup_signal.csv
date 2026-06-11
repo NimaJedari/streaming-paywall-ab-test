@@ -1,0 +1,9 @@
+signal,variant,conv_rate,n
+high_completion,control,0.08877005347593583,1870
+high_completion,treatment,0.1756152125279642,1788
+repeat_visits,control,0.09723160027008777,1481
+repeat_visits,treatment,0.16518771331058021,1465
+large_watchlist,control,0.0995850622406639,1446
+large_watchlist,treatment,0.14006514657980457,1535
+binge,control,0.08818635607321132,1202
+binge,treatment,0.18961253091508656,1213
