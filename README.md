@@ -1,3 +1,5 @@
+Report : https://nimajedari.github.io/streaming-paywall-ab-test/
+
 # A/B Test: Personalized Paywall Upsell — Premium Conversion
 
 **Tools:** Python · SciPy · Pandas · NumPy · Survival Analysis · Stratified Randomization
